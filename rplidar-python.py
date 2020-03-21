@@ -31,7 +31,9 @@ _HEALTH_STATUSES = {
 }
 
 class RPLidarException(Exception):
-    pass
+
+    def __init__(self, rplidar, message):
+        rplidar.force_stop()
 
 class RPLidar(object):
 
@@ -53,7 +55,7 @@ class RPLidar(object):
                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
                 timeout=self.timeout, dsrdtr=True)
         except serial.SerialException as err:
-            raise RPLidarException('Failed to connect to the sensor due to: {}'.format(err)) 
+            raise RPLidarException(self, 'Failed to connect to the sensor due to: {}'.format(err)) 
                                  
     def disconnect(self):
         if self._serial_port is None:
@@ -92,27 +94,27 @@ class RPLidar(object):
     def _read_descriptor(self):
         descriptor = self._serial_port.read(DESCRIPTOR_LEN)
         if len(descriptor) != DESCRIPTOR_LEN:
-            raise RPLidarException('Descriptor length mismatch')
+            raise RPLidarException(self, 'Descriptor length mismatch')
         elif not descriptor.startswith(SYNC_BYTE + SYNC_BYTE2):
-            raise RPLidarException('Incorrect descriptor starting bytes')
+            raise RPLidarException(self, 'Incorrect descriptor starting bytes')
         is_single = descriptor[-2] == 0
         return descriptor[2], is_single, descriptor[-1]
 
     def _read_response(self, dsize):
         data = self._serial_port.read(dsize)
         if len(data) != dsize:
-            raise RPLidarException('Wrong body size')
+            raise RPLidarException(self, 'Wrong body size')
         return data
 
     def get_info(self):
         self._send_cmd(GET_INFO_BYTE)
         dsize, is_single, dtype = self._read_descriptor()
         if dsize != INFO_LEN:
-            raise RPLidarException('Wrong get_info reply length')
+            raise RPLidarException(self, 'Wrong get_info reply length')
         if not is_single:
-            raise RPLidarException('Not a single response mode')
+            raise RPLidarException(self, 'Not a single response mode')
         if dtype != INFO_TYPE:
-            raise RPLidarException('Wrong response data type')
+            raise RPLidarException(self, 'Wrong response data type')
         raw = self._read_response(dsize)
         serialnumber = codecs.encode(raw[4:], 'hex').upper()
         serialnumber = codecs.decode(serialnumber, 'ascii')
@@ -128,11 +130,11 @@ class RPLidar(object):
         self._send_cmd(GET_HEALTH_BYTE)
         dsize, is_single, dtype = self._read_descriptor()
         if dsize != HEALTH_LEN:
-            raise RPLidarException('Wrong get_info reply length')
+            raise RPLidarException(self, 'Wrong get_info reply length')
         if not is_single:
-            raise RPLidarException('Not a single response mode')
+            raise RPLidarException(self, 'Not a single response mode')
         if dtype != HEALTH_TYPE:
-            raise RPLidarException('Wrong response data type')
+            raise RPLidarException(self, 'Wrong response data type')
         raw = self._read_response(dsize)
         status = _HEALTH_STATUSES[raw[0]]
         error_code = (raw[1] << 8) + raw[2]
@@ -157,16 +159,16 @@ class RPLidar(object):
             self.reset()
             status, error_code = self.get_health()
             if status == _HEALTH_STATUSES[2]:
-                raise RPLidarException('RPLidar hardware failure. Error code: {}'.format(error_code))
+                raise RPLidarException(self, 'RPLidar hardware failure. Error code: {}'.format(error_code))
         cmd = SCAN_BYTE
         self._send_cmd(cmd)
         dsize, is_single, dtype = self._read_descriptor()
         if dsize != 5:
-            raise RPLidarException('Wrong get_info reply length')
+            raise RPLidarException(self, 'Wrong get_info reply length')
         if is_single:
-            raise RPLidarException('Not a multiple response mode')
+            raise RPLidarException(self, 'Not a multiple response mode')
         if dtype != SCAN_TYPE:
-            raise RPLidarException('Wrong response data type')
+            raise RPLidarException(self, 'Wrong response data type')
         while True:
             raw = self._read_response(dsize)
             if max_buf_meas:
@@ -177,10 +179,10 @@ class RPLidar(object):
             inversed_new_scan = bool((raw[0] >> 1) & 0b1)
             quality = raw[0] >> 2
             if new_scan == inversed_new_scan:
-                raise RPLidarException('New scan flags mismatch')
+                raise RPLidarException(self, 'New scan flags mismatch')
             check_bit = raw[1] & 0b1
             if check_bit != 1:
-                raise RPLidarException('Check bit not equal to 1')
+                raise RPLidarException(self, 'Check bit not equal to 1')
             angle = ((raw[1] >> 1) + (raw[2] << 7)) / 64.
             distance = (raw[3] + (raw[4] << 8)) / 4.
             yield new_scan, quality, angle, distance            
@@ -196,41 +198,7 @@ class RPLidar(object):
             if quality > 0 and distance > 0:
                 scan.append((quality, angle, distance))
 
-if __name__ == '__main__':
-    import subprocess
-
-    subprocess.check_call([sys.executable, "-m", "pip", "install", 'matplotlib'])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", 'pyserial'])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", 'numpy'])
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import matplotlib.animation as animation
-
-    PORT_NAME = 'COM3'
-    DMAX = 4000
-    IMIN = 0
-    IMAX = 50    
-
-    def update_line(num, iterator, line):
-        scan = next(iterator)
-        offsets = np.array([(np.radians(meas[1]), meas[2]) for meas in scan])
-        line.set_offsets(offsets)
-        intens = np.array([meas[0] for meas in scan])
-        line.set_array(intens)
-        return line
-
-    lidar = RPLidar(PORT_NAME)
-    fig = plt.figure()
-    ax = plt.subplot(111, projection='polar')
-    line = ax.scatter([0, 0], [0, 0], s=5, c=[IMIN, IMAX],
-                           cmap=plt.cm.Greys_r, lw=0)
-    ax.set_rmax(DMAX)
-    ax.grid(True)
-
-    iterator = lidar.iter_scans()
-    ani = animation.FuncAnimation(fig, update_line,
-        fargs=(iterator, line), interval=50)
-    plt.show()
-    lidar.stop()
-    lidar.disconnect()
+    def force_stop(self):
+        self.stop()
+        self.stop_motor()
+        self.disconnect()
