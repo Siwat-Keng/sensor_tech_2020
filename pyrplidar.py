@@ -1,8 +1,4 @@
-<<<<<<< HEAD:pyrplidar.py
 import sys, time, codecs, serial, struct, multiprocessing, math
-=======
-import sys, time, codecs, serial, struct, multiprocessing
->>>>>>> 9eef46b18376f058960b7725567cfb8e21a077f0:rplidar-python.py
 
 SYNC_BYTE = b'\xA5'
 SYNC_BYTE2 = b'\x5A'
@@ -196,7 +192,6 @@ class RPLidar(object):
             distance = (raw[3] + (raw[4] << 8)) / 4.
             yield new_scan, quality, angle, distance
 
-<<<<<<< HEAD:pyrplidar.py
     def iter_scans_point(self, max_buf_meas=500, min_len=5):
         result = []
         iterator = self.iter_measurments(max_buf_meas)
@@ -219,23 +214,3 @@ def iter_scans(self, max_buf_meas=500, min_len=5):
             scan = []
         if quality > 0 and distance > 0:
             scan.append((quality, angle, distance))   
-=======
-    def iter_scans(self, max_buf_meas=500, min_len=5):
-        try:
-            scan = []
-            iterator = self.iter_measurments(max_buf_meas)
-            for new_scan, quality, angle, distance in iterator:
-                if new_scan:
-                    if len(scan) > min_len:
-                        scan.sort(key=lambda angle:angle[1])
-                        yield scan
-                    scan = []
-                if quality > 0 and distance > 0:
-                    scan.append((quality, angle, distance))
-        finally:
-            self.stop()
-            self.stop_motor()
-            self.clear_input()    
-            self.reset()
-            self.disconnect()
->>>>>>> 9eef46b18376f058960b7725567cfb8e21a077f0:rplidar-python.py
