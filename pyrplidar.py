@@ -1,4 +1,4 @@
-import sys, time, codecs, serial, struct
+import sys, time, codecs, serial, struct, multiprocessing, math
 
 SYNC_BYTE = b'\xA5'
 SYNC_BYTE2 = b'\x5A'
@@ -30,10 +30,15 @@ _HEALTH_STATUSES = {
     2: 'Error',
 }
 
-class RPLidarException(Exception):
 
+class RPLidarException(Exception):
+    
     def __init__(self, rplidar, message):
-        rplidar.force_stop()
+        rplidar.stop()
+        rplidar.stop_motor()
+        rplidar.clear_input()    
+        rplidar.reset()
+        rplidar.disconnect()
 
 class RPLidar(object):
 
@@ -53,14 +58,14 @@ class RPLidar(object):
             self._serial_port = serial.Serial(
                 self.port, self.baudrate,
                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
-                timeout=self.timeout, dsrdtr=True)
+                timeout=self.timeout)
         except serial.SerialException as err:
-            raise RPLidarException(self, 'Failed to connect to the sensor due to: {}'.format(err)) 
-                                 
+            raise RPLidarException(self, 'Failed to connect to the sensor due to: {}'.format(err))
+
     def disconnect(self):
         if self._serial_port is None:
             return
-        self._serial_port.close()    
+        self._serial_port.close()
 
     def set_pwm(self, pwm):
         assert(0 <= pwm <= MAX_MOTOR_PWM)
@@ -68,14 +73,14 @@ class RPLidar(object):
         self._send_payload_cmd(SET_PWM_BYTE, payload)
 
     def start_motor(self):
-        self._serial_port.dtr = False
+        self._serial_port.setDTR(False)
         self.set_pwm(DEFAULT_MOTOR_PWM)
         self.motor_running = True
 
     def stop_motor(self):
         self.set_pwm(0)
         time.sleep(.001)
-        self._serial_port.dtr = True
+        self._serial_port.setDTR(True)
         self.motor_running = False
 
     def _send_payload_cmd(self, cmd, payload):
@@ -89,7 +94,7 @@ class RPLidar(object):
 
     def _send_cmd(self, cmd):
         req = SYNC_BYTE + cmd
-        self._serial_port.write(req)        
+        self._serial_port.write(req)
 
     def _read_descriptor(self):
         descriptor = self._serial_port.read(DESCRIPTOR_LEN)
@@ -122,9 +127,9 @@ class RPLidar(object):
             'model': raw[0],
             'firmware': (raw[2], raw[1]),
             'hardware': raw[3],
-            'serialnumber': serialnumber
+            'serialnumber': serialnumber,
         }
-        return data    
+        return data
 
     def get_health(self):
         self._send_cmd(GET_HEALTH_BYTE)
@@ -185,20 +190,27 @@ class RPLidar(object):
                 raise RPLidarException(self, 'Check bit not equal to 1')
             angle = ((raw[1] >> 1) + (raw[2] << 7)) / 64.
             distance = (raw[3] + (raw[4] << 8)) / 4.
-            yield new_scan, quality, angle, distance            
+            yield new_scan, quality, angle, distance
 
-    def iter_scans(self, max_buf_meas=500, min_len=5):
-        scan = []
+    def iter_scans_point(self, max_buf_meas=500, min_len=5):
+        result = []
         iterator = self.iter_measurments(max_buf_meas)
         for new_scan, quality, angle, distance in iterator:
             if new_scan:
-                if len(scan) > min_len:
-                    yield scan
-                scan = []
+                if len(result) > min_len:
+                    yield result
+                result = []
             if quality > 0 and distance > 0:
-                scan.append((quality, angle, distance))
+                result.append((distance*math.cos(angle*math.pi/180),
+                distance*math.sin(angle*math.pi/180)))
 
-    def force_stop(self):
-        self.stop()
-        self.stop_motor()
-        self.disconnect()
+def iter_scans(self, max_buf_meas=500, min_len=5):
+    scan = []
+    iterator = self.iter_measurments(max_buf_meas)
+    for new_scan, quality, angle, distance in iterator:
+        if new_scan:
+            if len(scan) > min_len:
+                yield scan
+            scan = []
+        if quality > 0 and distance > 0:
+            scan.append((quality, angle, distance))   
