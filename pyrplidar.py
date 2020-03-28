@@ -22,7 +22,6 @@ SCAN_TYPE = 129
 
 MAX_MOTOR_PWM = 1023
 DEFAULT_MOTOR_PWM = 660
-SLOW_MOTOR_PWM = 60
 SET_PWM_BYTE = b'\xF0'
 
 _HEALTH_STATUSES = {
@@ -71,9 +70,9 @@ class RPLidar(object):
         payload = struct.pack("<H", pwm)
         self._send_payload_cmd(SET_PWM_BYTE, payload)
 
-    def start_motor(self, motor_speed):
+    def start_motor(self):
         self._serial_port.setDTR(False)
-        self.set_pwm(motor_speed)
+        self.set_pwm(DEFAULT_MOTOR_PWM)
         self.motor_running = True
 
     def stop_motor(self):
@@ -106,8 +105,8 @@ class RPLidar(object):
 
     def _read_response(self, dsize):
         data = self._serial_port.read(dsize)
-        if len(data) != dsize:
-            raise RPLidarException(self, 'Wrong body size')
+        while(len(data) != dsize):
+            data = self._serial_port.read(dsize)
         return data
 
     def get_info(self):
@@ -156,16 +155,15 @@ class RPLidar(object):
         self._send_cmd(RESET_BYTE)
         time.sleep(.002)
 
-    def iter_measurments(self, motor_speed, max_buf_meas=500):
-        self.start_motor(motor_speed)
+    def iter_measurments(self, max_buf_meas=500):
+        self.start_motor()
         status, error_code = self.get_health()
         if status == _HEALTH_STATUSES[2]:
             self.reset()
             status, error_code = self.get_health()
             if status == _HEALTH_STATUSES[2]:
                 raise RPLidarException(self, 'RPLidar hardware failure. Error code: {}'.format(error_code))
-        cmd = SCAN_BYTE
-        self._send_cmd(cmd)
+        self._send_cmd(SCAN_BYTE)
         dsize, is_single, dtype = self._read_descriptor()
         if dsize != 5:
             raise RPLidarException(self, 'Wrong get_info reply length')
@@ -193,7 +191,7 @@ class RPLidar(object):
 
     def iter_scan_points(self, max_buf_meas=500, min_len=5):
         result = []
-        iterator = self.iter_measurments(max_buf_meas, DEFAULT_MOTOR_PWM)
+        iterator = self.iter_measurments(max_buf_meas)
         for new_scan, quality, angle, distance in iterator:
             if new_scan:
                 if len(result) > min_len:
@@ -205,7 +203,7 @@ class RPLidar(object):
 
     def iter_scans(self, max_buf_meas=500, min_len=5):
         scan = []
-        iterator = self.iter_measurments(max_buf_meas, DEFAULT_MOTOR_PWM)
+        iterator = self.iter_measurments(max_buf_meas)
         for new_scan, quality, angle, distance in iterator:
             if new_scan:
                 if len(scan) > min_len:
@@ -215,7 +213,7 @@ class RPLidar(object):
                 scan.append((quality, angle, distance))   
 
     def get_distance(self, target, max_buf_meas=500, min_len=5):
-        iterator = self.iter_measurments(max_buf_meas, SLOW_MOTOR_PWM)
+        iterator = self.iter_measurments(max_buf_meas)
         for new_scan, quality, angle, distance in iterator:
             if quality > 0 and distance > 0:
                 if distance == angle:
