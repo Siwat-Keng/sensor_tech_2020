@@ -22,6 +22,7 @@ SCAN_TYPE = 129
 
 MAX_MOTOR_PWM = 1023
 DEFAULT_MOTOR_PWM = 660
+SLOW_MOTOR_PWM = 60
 SET_PWM_BYTE = b'\xF0'
 
 _HEALTH_STATUSES = {
@@ -48,7 +49,6 @@ class RPLidar(object):
         self.timeout = timeout
         self.motor_running = None
         self.connect()
-        self.start_motor()
 
     def connect(self):
         if self._serial_port is not None:
@@ -71,9 +71,9 @@ class RPLidar(object):
         payload = struct.pack("<H", pwm)
         self._send_payload_cmd(SET_PWM_BYTE, payload)
 
-    def start_motor(self):
+    def start_motor(self, motor_speed):
         self._serial_port.setDTR(False)
-        self.set_pwm(DEFAULT_MOTOR_PWM)
+        self.set_pwm(motor_speed)
         self.motor_running = True
 
     def stop_motor(self):
@@ -156,8 +156,8 @@ class RPLidar(object):
         self._send_cmd(RESET_BYTE)
         time.sleep(.002)
 
-    def iter_measurments(self, max_buf_meas=500):
-        self.start_motor()
+    def iter_measurments(self, motor_speed, max_buf_meas=500):
+        self.start_motor(motor_speed)
         status, error_code = self.get_health()
         if status == _HEALTH_STATUSES[2]:
             self.reset()
@@ -193,7 +193,7 @@ class RPLidar(object):
 
     def iter_scan_points(self, max_buf_meas=500, min_len=5):
         result = []
-        iterator = self.iter_measurments(max_buf_meas)
+        iterator = self.iter_measurments(max_buf_meas, DEFAULT_MOTOR_PWM)
         for new_scan, quality, angle, distance in iterator:
             if new_scan:
                 if len(result) > min_len:
@@ -205,7 +205,7 @@ class RPLidar(object):
 
     def iter_scans(self, max_buf_meas=500, min_len=5):
         scan = []
-        iterator = self.iter_measurments(max_buf_meas)
+        iterator = self.iter_measurments(max_buf_meas, DEFAULT_MOTOR_PWM)
         for new_scan, quality, angle, distance in iterator:
             if new_scan:
                 if len(scan) > min_len:
@@ -213,4 +213,13 @@ class RPLidar(object):
                 scan = []
             if quality > 0 and distance > 0:
                 scan.append((quality, angle, distance))   
+
+    def get_distance(self, target, max_buf_meas=500, min_len=5):
+        iterator = self.iter_measurments(max_buf_meas, SLOW_MOTOR_PWM)
+        for new_scan, quality, angle, distance in iterator:
+            if quality > 0 and distance > 0:
+                if distance == angle:
+                    yield distance
+                elif abs(angle-target)/360 < 0.01 or abs(angle-target-360) < 0.01:                        
+                    yield distance
 
