@@ -30,7 +30,6 @@ _HEALTH_STATUSES = {
     2: 'Error',
 }
 
-
 class RPLidarException(Exception):
     
     def __init__(self, rplidar, message):
@@ -42,7 +41,7 @@ class RPLidarException(Exception):
 
 class RPLidar(object):
 
-    def __init__(self, port, baudrate=115200, timeout=1):
+    def __init__(self, port='COM3', baudrate=115200, timeout=1):
         self._serial_port = None
         self.port = port
         self.baudrate = baudrate
@@ -192,7 +191,7 @@ class RPLidar(object):
             distance = (raw[3] + (raw[4] << 8)) / 4.
             yield new_scan, quality, angle, distance
 
-    def iter_scans_point(self, max_buf_meas=500, min_len=5):
+    def iter_scan_points(self, max_buf_meas=500, min_len=5):
         result = []
         iterator = self.iter_measurments(max_buf_meas)
         for new_scan, quality, angle, distance in iterator:
@@ -204,13 +203,14 @@ class RPLidar(object):
                 result.append((distance*math.cos(angle*math.pi/180),
                 distance*math.sin(angle*math.pi/180)))
 
-def iter_scans(self, max_buf_meas=500, min_len=5):
-    scan = []
-    iterator = self.iter_measurments(max_buf_meas)
-    for new_scan, quality, angle, distance in iterator:
-        if new_scan:
-            if len(scan) > min_len:
-                yield scan
-            scan = []
-        if quality > 0 and distance > 0:
-            scan.append((quality, angle, distance))   
+    def iter_scans(self, max_buf_meas=500, min_len=5):
+        scan = []
+        iterator = self.iter_measurments(max_buf_meas)
+        for new_scan, quality, angle, distance in iterator:
+            if new_scan:
+                if len(scan) > min_len:
+                    yield scan
+                scan = []
+            if quality > 0 and distance > 0:
+                scan.append((quality, angle, distance))   
+

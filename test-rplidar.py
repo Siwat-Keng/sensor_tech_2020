@@ -3,11 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.animation as animation
 
-PORT_NAME = 'COM3'
-DMAX = 4000
-IMIN = 0
-IMAX = 50
-
 def update_line(num, iterator, line):
     scan = next(iterator)
     x = np.array([mea[0] for mea in scan])
@@ -16,18 +11,19 @@ def update_line(num, iterator, line):
     return line,    
 
 def run():
-    lidar = RPLidar(PORT_NAME)
+    rplidar = RPLidar()
     fig = plt.figure()
     ax = plt.axes(xlim=(-8000, 8000), ylim=(-8000, 8000))
     line, = ax.plot([], [], lw=3)    
     ax.grid(True)
 
-    iterator = lidar.iter_scans_point()
+    iterator = rplidar.iter_scan_points()
     ani = animation.FuncAnimation(fig, update_line,
         fargs=(iterator, line), interval=50)
     plt.show()
-    lidar.stop()
-    lidar.disconnect()
+    rplidar.stop()
+    rplidar.stop_motor()   
+    rplidar.disconnect()
 
 if __name__ == '__main__':
     run()
