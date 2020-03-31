@@ -1,4 +1,5 @@
-import sys, time, codecs, serial, struct, multiprocessing, math
+import sys, time, codecs, serial, struct, multiprocessing
+import numpy as np
 
 SYNC_BYTE = b'\xA5'
 SYNC_BYTE2 = b'\x5A'
@@ -198,8 +199,8 @@ class RPLidar(object):
                     yield result
                 result = []
             if quality > 0 and distance > 0:
-                result.append((distance*math.cos(angle*math.pi/180),
-                distance*math.sin(angle*math.pi/180)))
+                result.append((distance*np.cos(np.radians(angle)),
+                distance*np.sin(np.radians(angle))))
 
     def iter_scans(self, max_buf_meas=500, min_len=5):
         scan = []
