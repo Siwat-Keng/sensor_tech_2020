@@ -16,7 +16,7 @@ for i in range(8000):
 rplidar.stop()
 rplidar.stop_motor()   
 rplidar.disconnect()
- 
+
 mapping = mapping[4000:12000,4000:12000] #crop
 mapping = cv2.cvtColor(mapping, cv2.COLOR_BGR2GRAY) #format picture
 ret, mapping = cv2.threshold(mapping, 3, 255, cv2.THRESH_BINARY) #remove noise
