@@ -120,7 +120,7 @@ def merge():
 
         transforms = []     
         for index in range(1, len(images)):
-                T,error = icp(convert(images[index]),convert(images[index-1]),max_time=10)
+                T,error = icp(convert(images[index]),convert(images[index-1]),max_time=60)
                 transforms.append(T)
         
         template = cv2.resize(images[0],(400,400))
