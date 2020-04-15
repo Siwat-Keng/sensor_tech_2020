@@ -221,4 +221,3 @@ class RPLidar(object):
                     yield distance
                 elif abs(angle-target)/360 < 0.01 or abs(angle-target-360) < 0.01:                        
                     yield distance
-
