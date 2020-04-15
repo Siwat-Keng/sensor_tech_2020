@@ -116,7 +116,6 @@ def merge():
         images = []
         for name in fname:
                 images.append(cv2.imread(name))
-        print(fname)
 
         transforms = []     
         for index in range(1, len(images)):

@@ -1,4 +1,4 @@
-import sys, time, codecs, serial, struct, multiprocessing
+import time, codecs, serial, struct
 import numpy as np
 
 SYNC_BYTE = b'\xA5'
@@ -211,7 +211,7 @@ class RPLidar(object):
                     yield scan
                 scan = []
             if quality > 0 and distance > 0:
-                scan.append((quality, angle, distance))   
+                scan.append({'angle':angle, 'distance':distance})   
 
     def get_distance(self, target, max_buf_meas=500, min_len=5):
         iterator = self.iter_measurments(max_buf_meas)
