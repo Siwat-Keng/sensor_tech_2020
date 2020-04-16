@@ -1,10 +1,7 @@
 import glob
 import cv2
 import numpy
-import random
-import matplotlib.pyplot
 import copy
-import pylab
 import time
 import sys
 import sklearn.neighbors
@@ -122,25 +119,31 @@ def merge():
     for index in range(1, len(images)):
         T,error = icp(convert(images[index]),convert(images[index-1]))
         transforms.append(T)
-    
-    template = numpy.concatenate((template, numpy.zeros(shape=template.shape, dtype=template.dtype)), axis=1)
-    template = numpy.concatenate((template, numpy.zeros(shape=template.shape, dtype=template.dtype)), axis=0)           
-
+    try:
+        template = images[0]
+    except IndexError:
+        print("No .png detected!")
+        return
+    # template = numpy.concatenate((template, numpy.zeros(shape=template.shape, dtype=template.dtype)), axis=1)
+    # template = numpy.concatenate((template, numpy.zeros(shape=template.shape, dtype=template.dtype)), axis=0) 
     for inx,img in enumerate(images[1:]):
         image = convert(img)
         transform = transforms[0]
         for i in range(1, inx+1):
             transform = transform.dot(transforms[i])
+        # cv2.imshow('Before', template)
         image = cv2.transform(numpy.array([image.T], copy=True).astype(numpy.float32), transform).T
-        cv2.imshow('Before Merge', template)
-        cv2.waitKey()
         for i in range(len(image[0])):  
             template[int(image[0][i][0]), int(image[1][i][0])] = 255
-        cv2.imshow('Merged!', template)
-        cv2.waitKey()
-    
-    cv2.destroyAllWindows()
+        # cv2.imshow('After', template)
+        # cv2.waitKey()
+
+    true_points = numpy.argwhere(template)
+    top_left = true_points.min(axis=0)
+    bottom_right = true_points.max(axis=0)
+    template = template[top_left[0]:bottom_right[0]+1,top_left[1]:bottom_right[1]+1]
     cv2.imshow('Result', template)
+    cv2.imwrite('Result.png', template)
     cv2.waitKey()
 
 if __name__ == "__main__":
