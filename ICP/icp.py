@@ -110,7 +110,7 @@ def convert(img):
 
 def merge():
 
-    fname = glob.glob('*.png')
+    fname = glob.glob('./map/*.png')
     images = []
     for name in fname:
         images.append(cv2.imread(name))
