@@ -24,12 +24,18 @@ def convert_map(resulution=0.001, threshold=1):
             _map = np.load(filename, allow_pickle=True)
             _image = np.zeros((int(16/resulution), int(16/resulution),3),np.uint8)
             for scan in _map:
-                x = scan['distance']*np.cos(np.radians(scan['angle']))*0.001/resulution
-                y = scan['distance']*np.sin(np.radians(scan['angle']))*0.001/resulution
-                _image[int(x+8/resulution), int(y+8/resulution)] += 1
+                try:
+                    x = scan['distance']*np.cos(np.radians(scan['angle']))*0.001/resulution
+                    y = scan['distance']*np.sin(np.radians(scan['angle']))*0.001/resulution  
+                    _image[int(x+8/resulution), int(y+8/resulution)] += 1
+                except KeyError:              
+                    for angle in scan:
+                        x = scan[angle]*np.cos(np.radians(angle))*0.001/resulution
+                        y = scan[angle]*np.sin(np.radians(angle))*0.001/resulution
+                        _image[int(x+8/resulution), int(y+8/resulution)] += 1
             _image = cv2.cvtColor(_image, cv2.COLOR_BGR2GRAY)
             ret, _image = cv2.threshold(_image, threshold, 255, cv2.THRESH_BINARY)
-            cv2.imwrite('{}.png'.format(mapping), _image)
+            cv2.imwrite('{}.png'.format(mapping.replace('.npy','')), _image)
 
 def png_to_matplotlib(img):
     output = [[],[]]

@@ -109,35 +109,32 @@ def convert(img):
     return numpy.array(output)
 
 def merge():
-
     fname = glob.glob('./map/*.png')
     images = []
     for name in fname:
         images.append(cv2.imread(name))
-
+        print('{} Loaded!'.format(name))
     transforms = []     
     for index in range(1, len(images)):
         T,error = icp(convert(images[index]),convert(images[index-1]))
         transforms.append(T)
+        print('Image {} Calculated!'.format(index))
     try:
         template = images[0]
     except IndexError:
         print("No .png detected!")
         return
-    # template = numpy.concatenate((template, numpy.zeros(shape=template.shape, dtype=template.dtype)), axis=1)
-    # template = numpy.concatenate((template, numpy.zeros(shape=template.shape, dtype=template.dtype)), axis=0) 
     for inx,img in enumerate(images[1:]):
-        image = convert(img)
+        point = convert(img)
         transform = transforms[0]
         for i in range(1, inx+1):
             transform = transform.dot(transforms[i])
-        # cv2.imshow('Before', template)
-        image = cv2.transform(numpy.array([image.T], copy=True).astype(numpy.float32), transform).T
-        for i in range(len(image[0])):  
-            template[int(image[0][i][0]), int(image[1][i][0])] = 255
-        # cv2.imshow('After', template)
-        # cv2.waitKey()
-
+        point = cv2.transform(numpy.array([point.T], copy=True).astype(numpy.float32), transform).T
+        image = numpy.zeros(template.shape, numpy.uint8)
+        for i in range(len(point[0])):  
+            image[int(point[0][i][0]), int(point[1][i][0])] = 255
+        template = cv2.addWeighted( src1=template, alpha=1, src2=image, beta=1, gamma=0, dst=template)     
+        print('{} Images Merged!'.format(inx+2))
     true_points = numpy.argwhere(template)
     top_left = true_points.min(axis=0)
     bottom_right = true_points.max(axis=0)

@@ -1,4 +1,4 @@
-import Mapping
+import Mapping,time
 
 #Define Resolution
 m = 1.0
@@ -7,5 +7,6 @@ cm = 0.01
 mm = 0.001
 
 if __name__ == '__main__':
+    # time.sleep(10)
     # Mapping.collect_map(repeat=400) #save .npy map 
     Mapping.convert_map(resulution=cm) #convert all .npy to .png resolution = 1cm
